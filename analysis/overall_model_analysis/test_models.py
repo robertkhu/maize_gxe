@@ -7,7 +7,7 @@ import random
 import ipdb
 
 # Model imports
-from sklearn.linear_model import LinearRegression, RidgeCV, Lasso, ElasticNet, Lars, \
+from sklearn.linear_model import LinearRegression, RidgeCV, Lasso, ElasticNetCV, Lars, \
     LassoLars, OrthogonalMatchingPursuit, BayesianRidge, ARDRegression, PoissonRegressor, GammaRegressor, \
     SGDRegressor, PassiveAggressiveRegressor
 
@@ -80,9 +80,9 @@ def main(args):
     # Model definitions and testing
 
     models = {'linear_regression': LinearRegression(),
-                'ridge_cv': RidgeCV(),
+                'ridge_cv': RidgeCV(scoring='neg_mean_squared_error'),
                 'lasso': Lasso(),
-                'elastic': ElasticNet(),
+                'elastic': ElasticNetCV(scoring='neg_mean_squared_error'),
                 'lars': Lars(),
                 'lasso_lars': LassoLars(),
                 'orthogonal_mp': OrthogonalMatchingPursuit(),
