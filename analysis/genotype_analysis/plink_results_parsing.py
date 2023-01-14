@@ -38,9 +38,9 @@ def main(args):
 
     # All credits to Rasika for writing the below
     sample_geno_matrix = pd.read_csv('{}.raw'.format(args.output_prefix), sep='\t')
-    geno_effect_matrix = filt_results[['ID, BETA']].set_index('ID')
+    geno_effect_matrix = filt_results[['ID', 'BETA']].set_index('ID')
 
-    sample_geno_matrix = sample_geno_matrix.drop('PAT', 'MAT', 'SEX', 'PHENOTYPE', 'FID').fillna(0)
+    sample_geno_matrix = sample_geno_matrix.drop(columns=['PAT', 'MAT', 'SEX', 'PHENOTYPE', 'FID']).set_index('IID').fillna(0)
 
     sample_prs = np.matmul(sample_geno_matrix, geno_effect_matrix)
     sample_prs.to_csv('{}_prs_scores.txt'.format(args.output_prefix), header=None)
