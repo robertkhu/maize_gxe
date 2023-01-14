@@ -64,7 +64,9 @@ def train_and_analyze_model(model, X_train, y_train, X_test, y_test, seed, verbo
 def main(args):
     
     # Load data
-    ml_data = pd.read_csv(args.input_file)
+    ml_data = pd.read_csv(args.input_file, compression='gzip', encoding = "ISO-8859-1")
+
+    ipdb.set_trace()
 
     # Get actual feature data from the array (TODO: which columns?)
     ml_data_features = ml_data.iloc[:, 7:38]
@@ -189,7 +191,7 @@ if __name__ == '__main__':
             help="Input file to use for the analysis.")
 
     parser.add_argument("--output-dir", type=str, 
-            default='../out_dir/',
+            default='./out_dir/',
             help="Output for model testing and data thereof (if any).")
 
     parser.add_argument("--seed", type=int, 
