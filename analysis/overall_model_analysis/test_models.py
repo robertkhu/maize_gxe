@@ -10,15 +10,17 @@ import ipdb
 from sklearn.linear_model import LinearRegression, RidgeCV, Lasso, ElasticNetCV, Lars, \
     LassoLars, OrthogonalMatchingPursuit, BayesianRidge, ARDRegression, PoissonRegressor, GammaRegressor, \
     SGDRegressor, PassiveAggressiveRegressor
+from sklearn.ensemble import RandomForestRegressor
 
 # Various imports for splitting, data processing, etc.
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 # Various helper functions
 from sklearn.base import clone
 from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
+from sklearn.inspection import permutation_importance
 
 import sklearn.metrics
 
@@ -45,6 +47,7 @@ def get_various_metrics(y_true, y_test, print_full_report=True):
     return metrics
 
 @ignore_warnings(category=ConvergenceWarning)
+@ignore_warnings(category=FutureWarning)
 def train_and_analyze_model(model, X_train, y_train, X_test, y_test, seed, verbose=False):
     model.random_state=seed
     model.fit(X_train, y_train)
@@ -66,39 +69,66 @@ def main(args):
     # Load data
     ml_data = pd.read_csv(args.input_file, compression='gzip', encoding = "ISO-8859-1")
 
-    ipdb.set_trace()
+    # Pull out the real training data and the real eval data based on the existence of yield
+    ml_data_train = ml_data[~ml_data['Yield_Mg_ha'].isna()].replace('', pd.NA)
+    ml_data_eval = ml_data[ml_data['Yield_Mg_ha'].isna()].replace('', pd.NA)
+
+    # Temporary, TODO: use a proper dataframe with little-no NAs for training and only numeric values in each column
+    ml_data_train = ml_data_train.drop_duplicates(['Env', 'Hybrid'])
+    ml_data_train_num = ml_data_train.select_dtypes(include=[np.number]).dropna()
+
 
     # Get actual feature data from the array (TODO: which columns?)
-    ml_data_features = ml_data.iloc[:, 7:38]
-
-    # Select specific features from the data?
-    ml_data_features = ml_data_features.iloc[:, np.r_[0:7, 16, 23:26, 28:29]]
+    #ml_train_features = ml_data_train_num.iloc[:, np.r_[1:18, 300:len(ml_data_train_num.columns)]] #MWES including MES
+    #ml_train_features = ml_data_train_num.iloc[:, np.r_[1:18, 536:len(ml_data_train_num.columns)]] # MWES including MS
+    ml_train_features = ml_data_train_num.iloc[:, np.r_[1:18]] #MWES including M
 
     # Get the yield values for each hybrid
-    yield_vals = ml_data['yield']
+    train_yield_vals = ml_data_train_num['Yield_Mg_ha']
 
+
+    # True test data
+    # TODO: Pull from the ml_data above and get the features for the evaluation data
+    ml_data_eval_num = ml_data_eval.select_dtypes(include=[np.number])
+    #ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18, 300:len(ml_data_eval_num.columns)]] #MWES including MWES
+    #ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18, 536:len(ml_data_eval_num.columns)]] # MWES including MWS
+    ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18]] #MWES including M
+
+    if(len(ml_eval_features) != len(ml_eval_features.dropna())):
+        print("THIS FILE HAS TEST DATA MISSING DATA IN COLUMNS")
+        ipdb.set_trace()
+
+
+    scaler = MinMaxScaler().set_output(transform='pandas')
+    ml_train_features = scaler.fit_transform(ml_train_features)
+    ml_eval_features = scaler.transform(ml_eval_features)
+
+    ipdb.set_trace()
 
 
     # Model definitions and testing
 
     models = {'linear_regression': LinearRegression(),
-                'ridge_cv': RidgeCV(scoring='neg_mean_squared_error'),
-                'lasso': Lasso(),
-                'elastic': ElasticNetCV(scoring='neg_mean_squared_error'),
-                'lars': Lars(),
-                'lasso_lars': LassoLars(),
+                'ridge_cv': RidgeCV(),
+                'elastic_cv': ElasticNetCV(),
                 'orthogonal_mp': OrthogonalMatchingPursuit(),
                 'bayesian_ridge': BayesianRidge(),
-                'ard': ARDRegression(),
                 'poisson': PoissonRegressor(),
                 'gamma': GammaRegressor(),
-                'sgd': SGDRegressor(),
-                'passive_aggressive': PassiveAggressiveRegressor()}
+                'ard': ARDRegression(), # very slow in training, though decent performance
+                'sgd': SGDRegressor(), # poor performance (RMSE of >1e5)
+                'lars': Lars(), # poor performance (RMSE of >1e5)
+                #'passive_aggressive': PassiveAggressiveRegressor(), # consistently underperform
+                #'lasso': Lasso(), # consistently underperform
+                #'lasso_lars': LassoLars(), # consistently underperform
+                'random_forest': RandomForestRegressor(), # very slow in training, though decent performance
+                }
 
 
 
     iter_metrics = {}
     model_iter = {}
+
 
     print("Starting model iterations (seeds {} to {}, inclusive)...".format(args.seed, args.seed+args.num_iters-1))
     print("")
@@ -108,15 +138,15 @@ def main(args):
         #print("Iteration {}".format(seed_iter+1), end='\r')
 
         # Get training and testing data (80% train, 20% test)
-        X_train, X_test, y_train, y_test = train_test_split(ml_data_features.values, sevo_codes.values, test_size=0.2, random_state=seed_iter)
+        X_train, X_test, y_train, y_test = train_test_split(ml_train_features.values, train_yield_vals.values, test_size=0.2, random_state=seed_iter)
 
         # Scale the data and such
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+        # scaler = StandardScaler()
+        # X_train = scaler.fit_transform(X_train)
+        # X_test = scaler.transform(X_test)
 
 
-        for mname, model in tqdm(models.items(), leave=False):
+        for mname, model in tqdm(models.items(), leave=True):
             if args.verbose:
                 print("Training and fitting {} now...".format(mname))
 
@@ -162,7 +192,7 @@ def main(args):
         metric_num_arrays = [np.array(x) for x in final_df_metrics_raw[metric].values]
         metric_boxplot = sns.boxplot(metric_num_arrays)
 
-        metric_boxplot.set_xticklabels(final_df_metrics_raw.index.str.upper())
+        metric_boxplot.set_xticklabels(final_df_metrics_raw.index.str.upper(), rotation=45)
 
         plt.xlabel("Model")
         plt.ylabel(metric.upper())
@@ -170,8 +200,46 @@ def main(args):
 
         plt.savefig(os.path.join(args.output_dir, '{}_plot.png'.format(metric)))
 
-        plt.show()
+        #plt.show()
+        plt.close()
 
+
+
+    # Predict on the true testing set, for the purposes of submission
+    # Average across all the trained models for a model type, then average across the models
+
+    all_models = []
+    all_model_iter_preds = pd.DataFrame()
+    all_model_iter_rmses = []
+    avg_model_preds = pd.DataFrame()
+
+    for mname, model in tqdm(models.items(), leave=True):
+        curr_model_preds = pd.DataFrame()
+        curr_model_rmses = []
+
+        for seed_iter in tqdm(range(args.seed, args.seed+args.num_iters)):
+            iter_model = iter_metrics[seed_iter][mname]['model']
+            curr_model_rmse = iter_metrics[seed_iter][mname]['metrics']['rmse']
+
+            curr_model_pred = iter_model.predict(ml_eval_features.values)
+
+            curr_model_preds[seed_iter] = curr_model_pred
+            curr_model_rmses.append(curr_model_rmse)
+
+            all_model_iter_preds['{}_{}'.format(mname, seed_iter)] = curr_model_pred
+            all_model_iter_rmses.append(curr_model_rmse)
+            all_models.append(iter_model)
+
+        avg_model_preds[mname] = curr_model_preds.mean(axis=1)
+
+
+    ipdb.set_trace()
+
+
+    out_df = ml_data_eval[['Env', 'Hybrid']].copy()
+    out_df['Yield_Mg_ha'] = avg_model_preds.mean(axis=1).values
+
+    out_df.to_csv(os.path.join(args.output_dir, 'predicted_yield_vals.csv'), index=False)
 
 
     ipdb.set_trace()
@@ -199,7 +267,7 @@ if __name__ == '__main__':
             help="Seed for random seed setting (starting point if iterating).")
 
     parser.add_argument("--num-iters", type=int,
-            default=5,
+            default=10,
             help="Number of iterations to do.")
 
     parser.add_argument("--verbose", action='store_true', 
