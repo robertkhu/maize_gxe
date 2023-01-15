@@ -6,11 +6,17 @@ import random
 
 import ipdb
 
-# Model imports
+# Base model imports
 from sklearn.linear_model import LinearRegression, RidgeCV, Lasso, ElasticNetCV, Lars, \
     LassoLars, OrthogonalMatchingPursuit, BayesianRidge, ARDRegression, PoissonRegressor, GammaRegressor, \
     SGDRegressor, PassiveAggressiveRegressor
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.neural_network import MLPRegressor
+
+# Ensemble model imports (standalone)
+from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGradientBoostingRegressor
+
+# Ensemble model imports (wrapping a base estimator)
+from sklearn.ensemble import BaggingRegressor, AdaBoostRegressor
 
 # Various imports for splitting, data processing, etc.
 from sklearn.model_selection import train_test_split
@@ -75,7 +81,8 @@ def main(args):
 
     # Temporary, TODO: use a proper dataframe with little-no NAs for training and only numeric values in each column
     ml_data_train = ml_data_train.drop_duplicates(['Env', 'Hybrid'])
-    ml_data_train_num = ml_data_train.select_dtypes(include=[np.number]).dropna()
+    #ml_data_train_num = ml_data_train.select_dtypes(include=[np.number]).dropna()
+    ml_data_train_num = ml_data_train.select_dtypes(include=[np.number]) # don't drop missing for Hist Gradient Boosting
 
 
     # Get actual feature data from the array (TODO: which columns?)
@@ -94,6 +101,7 @@ def main(args):
     #ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18, 536:len(ml_data_eval_num.columns)]] # MWES including MWS
     ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18]] #MWES including M
 
+    # don't drop missing for Hist Gradient Boosting
     if(len(ml_eval_features) != len(ml_eval_features.dropna())):
         print("THIS FILE HAS TEST DATA MISSING DATA IN COLUMNS")
         ipdb.set_trace()
@@ -103,26 +111,28 @@ def main(args):
     ml_train_features = scaler.fit_transform(ml_train_features)
     ml_eval_features = scaler.transform(ml_eval_features)
 
-    ipdb.set_trace()
+    #ipdb.set_trace()
 
 
     # Model definitions and testing
+    # For early stopping we'll use ‘neg_root_mean_squared_error’ as scoring (if supported)
 
-    models = {'linear_regression': LinearRegression(),
-                'ridge_cv': RidgeCV(),
-                'elastic_cv': ElasticNetCV(),
-                'orthogonal_mp': OrthogonalMatchingPursuit(),
-                'bayesian_ridge': BayesianRidge(),
-                'poisson': PoissonRegressor(),
-                'gamma': GammaRegressor(),
-                'ard': ARDRegression(), # very slow in training, though decent performance
-                'sgd': SGDRegressor(), # poor performance (RMSE of >1e5)
-                'lars': Lars(), # poor performance (RMSE of >1e5)
-                #'passive_aggressive': PassiveAggressiveRegressor(), # consistently underperform
-                #'lasso': Lasso(), # consistently underperform
-                #'lasso_lars': LassoLars(), # consistently underperform
-                #'random_forest': RandomForestRegressor(), # slow in training, though decent performance
-                }
+    models = {
+                # 'random_forest': RandomForestRegressor(criterion='friedman_mse'),
+                # 'extra_trees': ExtraTreesRegressor(criterion='friedman_mse'),
+                #'hist_gbr_vanilla': HistGradientBoostingRegressor(),
+                'hist_gbr_iter100k': HistGradientBoostingRegressor(max_iter=100000),
+                # 'mlp_vanilla': MLPRegressor(),
+                # 'mlp_tanh': MLPRegressor(activation='tanh'),
+                # 'mlp_iter1k': MLPRegressor(max_iter=1000),
+                # 'mlp_tanh_iter1k': MLPRegressor(activation='tanh', max_iter=1000),
+                # 'bagging_lr': BaggingRegressor(LinearRegression()),
+                # 'bagging_ridge': BaggingRegressor(RidgeCV()),
+                # 'bagging_lars': BaggingRegressor(Lars()),
+                # 'ada_lr': AdaBoostRegressor(LinearRegression()),
+                # 'ada_ridge': AdaBoostRegressor(RidgeCV()),
+                # 'ada_lars': AdaBoostRegressor(Lars()),
+            }
 
 
 
@@ -212,13 +222,13 @@ def main(args):
     all_model_iter_preds = pd.DataFrame()
     all_model_iter_rmses = []
     avg_model_preds = pd.DataFrame()
-    avg_model_rmses = []
+    avg_model_rmses = {}
 
-    for mname, model in tqdm(models.items(), leave=True):
+    for mname, model in tqdm(models.items(), leave=False):
         curr_model_preds = pd.DataFrame()
         curr_model_rmses = []
 
-        for seed_iter in tqdm(range(args.seed, args.seed+args.num_iters)):
+        for seed_iter in tqdm(range(args.seed, args.seed+args.num_iters), leave=False):
             iter_model = iter_metrics[seed_iter][mname]['model']
             curr_model_rmse = iter_metrics[seed_iter][mname]['metrics']['rmse']
 
@@ -232,10 +242,11 @@ def main(args):
             all_models.append(iter_model)
 
         avg_model_preds[mname] = curr_model_preds.mean(axis=1)
-        avg_model_rmses.append(np.mean(curr_model_rmses))
+        avg_model_rmses[mname] = np.mean(curr_model_rmses)
 
 
-    ipdb.set_trace()
+
+    # ipdb.set_trace()
 
 
     out_df = ml_data_eval[['Env', 'Hybrid']].copy()
