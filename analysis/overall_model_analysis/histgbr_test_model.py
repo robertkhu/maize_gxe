@@ -86,9 +86,6 @@ def main(args):
 
 
     # Get actual feature data from the array (TODO: which columns?)
-    #ml_train_features = ml_data_train_num.iloc[:, np.r_[1:18, 300:len(ml_data_train_num.columns)]] #MWES including MES
-    #ml_train_features = ml_data_train_num.iloc[:, np.r_[1:18, 536:len(ml_data_train_num.columns)]] # MWES including MS
-    ml_train_features = ml_data_train_num.iloc[:, np.r_[1:18]] #MWES including M
 
     # Get the yield values for each hybrid
     train_yield_vals = ml_data_train_num['Yield_Mg_ha']
@@ -97,9 +94,47 @@ def main(args):
     # True test data
     # TODO: Pull from the ml_data above and get the features for the evaluation data
     ml_data_eval_num = ml_data_eval.select_dtypes(include=[np.number])
-    #ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18, 300:len(ml_data_eval_num.columns)]] #MWES including MWES
-    #ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18, 536:len(ml_data_eval_num.columns)]] # MWES including MWS
-    ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18]] #MWES including M
+     
+
+    # If we have feature selection files, then use those features
+    if(args.feature_selection_file):
+        feature_cols_df = pd.read_csv(args.feature_selection_file)
+        feature_cols_df = feature_cols_df.sort_values(['r2'], ascending=False)
+
+        if(args.remove_weather):
+            feature_col_type_origin = pd.read_csv(args.column_type_file)
+            weather_feature_df = feature_col_type_origin[['column_names', 'weather']]
+            weather_feature_df = weather_feature_df[weather_feature_df['weather']]
+
+            weather_cols_to_remove = weather_feature_df['column_names']
+
+            feature_cols_df = feature_cols_df[~feature_cols_df['Y'].isin(weather_cols_to_remove)]
+
+        keep_cols = feature_cols_df['Y'].head(args.top_features_to_select).values
+        keep_cols = np.append(keep_cols, ['PRS10', 'PRS50', 'PRS100', 'PRS200'])
+        keep_cols = keep_cols.tolist()
+
+        ml_train_features = ml_data_train_num[keep_cols]
+        ml_eval_features = ml_data_eval_num[keep_cols]
+
+
+    else:
+        #ml_train_features = ml_data_train_num.iloc[:, np.r_[1:18, 300:len(ml_data_train_num.columns)]] #MWES including MES
+        #ml_train_features = ml_data_train_num.iloc[:, np.r_[1:18, 536:len(ml_data_train_num.columns)]] # MWES including MS
+        #ml_train_features = ml_data_train_num.iloc[:, np.r_[1:18]] #MWES including M
+
+        #ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18, 300:len(ml_data_eval_num.columns)]] #MWES including MWES
+        #ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18, 536:len(ml_data_eval_num.columns)]] # MWES including MWS
+        #ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:18]] #MWES including M
+
+        ml_train_features = ml_data_train_num.iloc[:, np.r_[1:len(ml_data_train_num.columns)]]
+        ml_eval_features = ml_data_eval_num.iloc[:, np.r_[1:len(ml_data_eval_num.columns)]]
+
+        print("Skipped feature selection; did not select any other columns")
+
+
+
+
 
     # don't drop missing for Hist Gradient Boosting
     if(len(ml_eval_features) != len(ml_eval_features.dropna())):
@@ -118,20 +153,7 @@ def main(args):
     # For early stopping we'll use ‘neg_root_mean_squared_error’ as scoring (if supported)
 
     models = {
-                # 'random_forest': RandomForestRegressor(criterion='friedman_mse'),
-                # 'extra_trees': ExtraTreesRegressor(criterion='friedman_mse'),
-                #'hist_gbr_vanilla': HistGradientBoostingRegressor(),
                 'hist_gbr_iter100k': HistGradientBoostingRegressor(max_iter=100000),
-                # 'mlp_vanilla': MLPRegressor(),
-                # 'mlp_tanh': MLPRegressor(activation='tanh'),
-                # 'mlp_iter1k': MLPRegressor(max_iter=1000),
-                # 'mlp_tanh_iter1k': MLPRegressor(activation='tanh', max_iter=1000),
-                # 'bagging_lr': BaggingRegressor(LinearRegression()),
-                # 'bagging_ridge': BaggingRegressor(RidgeCV()),
-                # 'bagging_lars': BaggingRegressor(Lars()),
-                # 'ada_lr': AdaBoostRegressor(LinearRegression()),
-                # 'ada_ridge': AdaBoostRegressor(RidgeCV()),
-                # 'ada_lars': AdaBoostRegressor(Lars()),
             }
 
 
@@ -285,6 +307,21 @@ if __name__ == '__main__':
 
     parser.add_argument("--verbose", action='store_true', 
             help="Whether to print metrics for each fit of each model.")
+
+    parser.add_argument("--feature-selection-file", type=str,
+            default=None,
+            help="Perform feature selection on the models (that is, select features based on Robert's files)")
+    
+    parser.add_argument("--top-features-to-select", type=int,
+            default=20,
+            help="Select the top 20 features from the file above to keep.")
+
+    parser.add_argument("--column-type-file", type=str,
+            default='../feature_column_separation.csv',
+            help='A file that has info on which file the features came from')
+
+    parser.add_argument("--remove-weather", action='store_true',
+            help='Arg to remove weather features')
 
 
     args = parser.parse_args()

@@ -1,0 +1,14 @@
+# For the massive dataframe with all features (missing and not) for HistGradientBoostingRegressor:
+
+python histgbr_test_model.py --input-file ../Merged_Features_unnormalized/unnormalized_merged_features_test_train_mwes.csv.gz --num-iters 5 --seed 9 --output-dir hist_gbr_yields_fixed
+
+
+
+
+# For feature selection with correlation, intentionally removing weather features
+
+python test_models.py --input-file ../Merged_Features_unnormalized/merged_features_test_train_gmwes.csv.gz --num-iters 5 --seed 9 --output-dir combo_model_results_fixednorm_featureselect_noweather/predicted_yield_vals_gmwes --feature-selection-file ../feature_selection/feature_yield_corr_with_covar_PRS10.csv --remove-weather
+
+
+
+python test_models.py --input-file ../Merged_Features_unnormalized/merged_features_test_train_gmwes.csv.gz --num-iters 5 --seed 9 --output-dir combo_model_results_fixednorm_featureselect/predicted_yield_vals_gmwes --feature-selection-file ../feature_selection/feature_yield_corr_with_covar_PRS10.csv
