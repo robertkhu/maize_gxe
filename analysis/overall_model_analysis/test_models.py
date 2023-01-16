@@ -102,6 +102,8 @@ def main(args):
 
         feature_cols_df = feature_cols_df[~feature_cols_df['Y'].isin(['% Sand', '% Clay', '% Silt', 'Texture No'])]
 
+        feature_cols_df = feature_cols_df[feature_cols_df['Y'].isin(ml_data_train_num.columns.values)]
+
         if(args.remove_features):
             feature_col_type_origin = pd.read_csv(args.column_type_file)
             for feature_type_val in args.remove_features:
@@ -149,13 +151,13 @@ def main(args):
 
     models = {
                 'linear_regression': LinearRegression(),
-                'ridge_cv': RidgeCV(),
+                #'ridge_cv': RidgeCV(),
                 'elastic_cv': ElasticNetCV(),
-                'orthogonal_mp': OrthogonalMatchingPursuit(),
-                'bayesian_ridge': BayesianRidge(),
+                #'orthogonal_mp': OrthogonalMatchingPursuit(),
+                #'bayesian_ridge': BayesianRidge(),
                 'poisson': PoissonRegressor(),
                 'gamma': GammaRegressor(),
-                'ard': ARDRegression(),
+                #'ard': ARDRegression(),
                 'sgd': SGDRegressor(), 
                 #'lars': Lars(), # shows a poor distribution on attempts
 
