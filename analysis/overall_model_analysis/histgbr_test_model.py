@@ -320,8 +320,10 @@ if __name__ == '__main__':
             default='../feature_column_separation.csv',
             help='A file that has info on which file the features came from')
 
-    parser.add_argument("--remove-weather", action='store_true',
-            help='Arg to remove weather features')
+    parser.add_argument("--remove-features", nargs='+', type=str,
+            default=None,
+            help='Args to select which features to remove')
+
 
 
     args = parser.parse_args()

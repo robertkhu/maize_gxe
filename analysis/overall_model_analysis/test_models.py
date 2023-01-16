@@ -100,14 +100,15 @@ def main(args):
         feature_cols_df = pd.read_csv(args.feature_selection_file)
         feature_cols_df = feature_cols_df.sort_values(['r2'], ascending=False)
 
-        if(args.remove_weather):
+        if(args.remove_features):
             feature_col_type_origin = pd.read_csv(args.column_type_file)
-            weather_feature_df = feature_col_type_origin[['column_names', 'weather']]
-            weather_feature_df = weather_feature_df[weather_feature_df['weather']]
+            for feature_type_val in args.remove_features:
+                weather_feature_df = feature_col_type_origin[['column_names', feature_type_val]]
+                weather_feature_df = weather_feature_df[weather_feature_df[feature_type_val]]
 
-            weather_cols_to_remove = weather_feature_df['column_names']
+                weather_cols_to_remove = weather_feature_df['column_names']
 
-            feature_cols_df = feature_cols_df[~feature_cols_df['Y'].isin(weather_cols_to_remove)]
+                feature_cols_df = feature_cols_df[~feature_cols_df['Y'].isin(weather_cols_to_remove)]
 
         keep_cols = feature_cols_df['Y'].head(args.top_features_to_select).values
         keep_cols = np.append(keep_cols, ['PRS10', 'PRS50', 'PRS100', 'PRS200'])
@@ -293,15 +294,18 @@ def main(args):
 
     hist_handles = [avg_model_preds[col].hist(bins=20) for col in avg_model_preds.columns.values]
 
+
+    out_df = ml_data_eval[['Env', 'Hybrid']].copy()
+    out_df['Yield_Mg_ha'] = avg_model_preds.mean(axis=1).values
+
     plt.gca().legend(avg_model_preds.columns.values, loc='upper left')
     plt.show()
 
     avg_model_preds.hist()
     plt.show()
 
-
-    out_df = ml_data_eval[['Env', 'Hybrid']].copy()
-    out_df['Yield_Mg_ha'] = avg_model_preds.mean(axis=1).values
+    out_df.hist()
+    plt.show()
 
     out_df.to_csv(os.path.join(args.output_dir, 'predicted_yield_vals.csv'), index=False)
 
@@ -349,8 +353,9 @@ if __name__ == '__main__':
             default='../feature_column_separation.csv',
             help='A file that has info on which file the features came from')
 
-    parser.add_argument("--remove-weather", action='store_true',
-            help='Arg to remove weather features')
+    parser.add_argument("--remove-features", nargs='+', type=str,
+            default=None,
+            help='Args to select which features to remove')
 
 
     args = parser.parse_args()
