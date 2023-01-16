@@ -100,6 +100,8 @@ def main(args):
         feature_cols_df = pd.read_csv(args.feature_selection_file)
         feature_cols_df = feature_cols_df.sort_values(['r2'], ascending=False)
 
+        feature_cols_df = feature_cols_df[~feature_cols_df['Y'].isin(['% Sand', '% Clay', '% Silt', 'Texture No'])]
+
         if(args.remove_features):
             feature_col_type_origin = pd.read_csv(args.column_type_file)
             for feature_type_val in args.remove_features:
@@ -308,6 +310,8 @@ def main(args):
     plt.show()
 
     out_df.to_csv(os.path.join(args.output_dir, 'predicted_yield_vals.csv'), index=False)
+
+    out_df.mean()
 
 
     ipdb.set_trace()
