@@ -8,8 +8,10 @@ bad_sub_2 = pd.read_csv('../../data/Testing_Data/maize_gxe_submission_2.csv')
 hgbr_new_sub_pend = pd.read_csv('../overall_model_analysis/hist_gbr_yields_fixed/predicted_yield_vals.csv')
 complex_sub_pend = pd.read_csv('../../data/Testing_Data/maize_gxe_submission_complexmodels.csv')
 fullyimputed_sub_pend = pd.read_csv('../overall_model_analysis/imputed_results_full/predicted_yield_vals.csv')
-fullyimputed_prune_sub_pend = pd.read_csv('../overall_model_analysis/imputed_results_full_modelprune/predicted_yield_vals.csv')
+fullyimputed_prune_sub_3 = pd.read_csv('../overall_model_analysis/imputed_results_full_modelprune/predicted_yield_vals.csv')
 fullyimputed_featureselect_sub_pend = pd.read_csv('../overall_model_analysis/imputed_results_full_modelprune/predicted_yield_vals.csv')
+combomodel_featureselect_sub_4 = pd.read_csv('../../data/Testing_Data/maize_gxe_submission_combomodel_featureselect.csv')
+
 
 all_subs = orig_good_sub_1.merge(bad_sub_2, on=['Env', 'Hybrid'])
 all_subs = all_subs.merge(hgbr_new_sub_pend,  on=['Env', 'Hybrid'])
@@ -23,14 +25,20 @@ all_subs = all_subs.merge(fullyimputed_sub_pend,  on=['Env', 'Hybrid'])
 all_subs['fullyimputed_sub_pend'] = all_subs['Yield_Mg_ha']
 all_subs = all_subs.drop(columns=['Yield_Mg_ha'])
 
-all_subs = all_subs.merge(fullyimputed_prune_sub_pend,  on=['Env', 'Hybrid'])
+all_subs = all_subs.merge(fullyimputed_prune_sub_3,  on=['Env', 'Hybrid'])
 all_subs['fullyimputed_prune_bad_sub_3'] = all_subs['Yield_Mg_ha']
 all_subs = all_subs.drop(columns=['Yield_Mg_ha'])
+
+all_subs = all_subs.merge(combomodel_featureselect_sub_4,  on=['Env', 'Hybrid'])
+all_subs['combomodel_featureselect_sub_4'] = all_subs['Yield_Mg_ha']
+all_subs = all_subs.drop(columns=['Yield_Mg_ha'])
+
+all_subs['abomination'] = (all_subs['good_sub_1'] + all_subs['hbgr_new_sub_pend'] + all_subs['combomodel_featureselect_sub_4']) / 3
 
 ipdb.set_trace()
 
 
-currCols = ['good_sub_1', 'bad_sub_2', 'fullyimputed_prune_bad_sub_3', 'complex_sub_pend', 'hbgr_new_sub_pend']
+currCols = ['good_sub_1', 'fullyimputed_prune_bad_sub_3', 'hbgr_new_sub_pend', 'combomodel_featureselect_sub_4', 'abomination']
 
 hist_handles = [all_subs[col].hist(bins=20) for col in currCols]
 
